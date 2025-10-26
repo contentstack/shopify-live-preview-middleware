@@ -1,0 +1,14 @@
+fileignoreconfig:
+- filename: .env.example
+  checksum: d4a3abad2962917f0d24649c00a516303b496b17e81dd187987bd851a5555862
+- filename: tests/environment.test.ts
+  checksum: 84e1960765aff963f406d2e1a6560c275186980af6c97b8b7ce6cc0e34c5dac0
+- filename: package-lock.json
+  checksum: d78abc07420375b0301e8c0435c4325a5dd173da5bc8408a567d698edd2ee061
+- filename: src/config.ts
+  checksum: 35f866d826cf8dc6cc78a79cf864a24889db28cbe673f3f70f61ff010af31c78
+- filename: README.md
+  checksum: 27505e36b66c5ea20978b97c900f856aaaef590cca7288c05d87933e15516d63
+- filename: src/controllers/index.ts
+  checksum: c7091843e1cc001269cda74cdc64a87de93165624564dea3c84bc0fac3942f2a
+version: "1.0"

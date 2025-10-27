@@ -24,7 +24,7 @@
     "@contentstack/shopify-live-preview-sdk": "file:contentstack-shopify-live-preview-sdk-1.0.0.tgz",
     "@fastify/cors": "^8.3.0",
     "@fastify/swagger": "^8.8.0",
-    "@fastify/swagger-ui": "^1.9.3",
+    "@fastify/swagger-ui": "^3.0.0",
     "adm-zip": "^0.5.10",
     "axios": "^1.9.0",
     "dotenv": "^16.5.0",

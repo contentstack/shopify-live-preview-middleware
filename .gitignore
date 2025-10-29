@@ -29,4 +29,6 @@ Thumbs.db
 # Coverage
 coverage/
 
+# package files
+*.tgz
 # Note: views/ directory is now included to provide pre-built directory for GitHub repo cloning

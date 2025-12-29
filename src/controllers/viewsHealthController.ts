@@ -176,7 +176,7 @@ export const viewsHealthHandler = async (request: FastifyRequest, reply: Fastify
     return response;
     
   } catch (error) {
-    request.log.error('Error in viewsHealthHandler:', error);
+    request.log.error('Error in viewsHealthHandler: %s', error instanceof Error ? error.message : String(error));
     
     const response: ViewsHealthResponse = {
       status: 'error',

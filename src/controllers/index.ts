@@ -58,7 +58,7 @@ export const getPreviewDataHandler = async (req: FastifyRequest<{ Body: PreviewD
     console.log("🚀 ~ getPreviewDataHandler ~ entryData:", entryData)
     let shopifyData = { ...theme_variable?.payload };
     
-    const keyBasedCt = livePreviewShopify.createContentTypeKeyBased(entryData.schema);
+    const keyBasedCt = livePreviewShopify.createContentTypeKeyBased([entryData.schema]);
     const updatedEntry = entryData.entry;
 
     if (_.get(shopifyData, 'product.metafields.contentstack_products', null)) {
@@ -72,7 +72,9 @@ export const getPreviewDataHandler = async (req: FastifyRequest<{ Body: PreviewD
         const mappedShopifyData = await livePreviewShopify.getUpdatedMetaobject({ ...currentMetaobjects }, keyBasedCt, updatedEntry, { ctUid: ctUid, hash: live_preview });
         shopifyData.metaobjects = mappedShopifyData.currentMetaobjects;
     }
-
+    if(typeof liquid_path !== 'string') {
+        return res.status(400).send({ message: 'Invalid liquid path' });
+    }
     const liquidFilePath = liquid_path.replace(/\./g, "/");
     try {        
         const newRenderedData = await engine.renderFile(liquidFilePath, shopifyData);

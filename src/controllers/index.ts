@@ -48,14 +48,8 @@ const engine = livePreviewShopify.getLiquidEngine();
 export const getPreviewDataHandler = async (req: FastifyRequest<{ Body: PreviewDataRequestBody }>, res: FastifyReply) => {
     const { live_preview, ctUid, entryUid, locale, theme_variable } = req.body;
     const { liquid_path } = theme_variable;
-
-    console.log("🚀 ~ getPreviewDataHandler ~ live_preview:", live_preview)
-    console.log("🚀 ~ getPreviewDataHandler ~ ctUid:", ctUid)
-    console.log("🚀 ~ getPreviewDataHandler ~ entryUid:", entryUid)
-    console.log("🚀 ~ getPreviewDataHandler ~ theme_variable:", theme_variable)
     
     const entryData: { schema: FieldSchema, entry: Entry } = await livePreviewShopify.fetchData(ctUid, entryUid, live_preview, locale) as { schema: FieldSchema, entry: Entry };
-    console.log("🚀 ~ getPreviewDataHandler ~ entryData:", entryData)
     let shopifyData = { ...theme_variable?.payload };
     
     const keyBasedCt = livePreviewShopify.createContentTypeKeyBased([entryData.schema]);

@@ -55,7 +55,7 @@ export const syncGithubRepoHandler = async (request: FastifyRequest<{ Body: Sync
     }
 
   } catch (error) {
-    request.log.error('Outer error in syncGithubRepoHandler:', error);
+    request.log.error('Outer error in syncGithubRepoHandler: %s', error instanceof Error ? error.message : String(error));
     reply.status(500);
     return {
       error: 'Failed to process sync request'

@@ -1,6 +1,6 @@
 {
   "name": "shopify-live-preview-middleware",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Shopify Live Preview Middleware Service",
   "type": "module",
   "main": "src/index.ts",
@@ -21,8 +21,9 @@
     "format": "prettier --write \"src/**/*.ts\""
   },
   "dependencies": {
-    "@contentstack/shopify-live-preview-sdk": "file:contentstack-shopify-live-preview-sdk-1.0.0.tgz",
+    "@contentstack/shopify-live-preview-sdk": "^1.1.0",
     "@fastify/cors": "^8.3.0",
+    "@fastify/rate-limit": "^9.1.0",
     "@fastify/swagger": "^8.8.0",
     "@fastify/swagger-ui": "^3.0.0",
     "adm-zip": "^0.5.10",
@@ -30,7 +31,6 @@
     "dotenv": "^16.5.0",
     "fastify": "^4.21.0",
     "fastify-plugin": "^4.5.1",
-    "live-preview-shopify-utils": "file:live-preview-shopify-utils-1.0.0.tgz",
     "lodash": "^4.17.21",
     "pino-pretty": "^10.2.0"
   },

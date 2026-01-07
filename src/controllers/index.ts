@@ -48,17 +48,11 @@ const engine = livePreviewShopify.getLiquidEngine();
 export const getPreviewDataHandler = async (req: FastifyRequest<{ Body: PreviewDataRequestBody }>, res: FastifyReply) => {
     const { live_preview, ctUid, entryUid, locale, theme_variable } = req.body;
     const { liquid_path } = theme_variable;
-
-    console.log("🚀 ~ getPreviewDataHandler ~ live_preview:", live_preview)
-    console.log("🚀 ~ getPreviewDataHandler ~ ctUid:", ctUid)
-    console.log("🚀 ~ getPreviewDataHandler ~ entryUid:", entryUid)
-    console.log("🚀 ~ getPreviewDataHandler ~ theme_variable:", theme_variable)
     
     const entryData: { schema: FieldSchema, entry: Entry } = await livePreviewShopify.fetchData(ctUid, entryUid, live_preview, locale) as { schema: FieldSchema, entry: Entry };
-    console.log("🚀 ~ getPreviewDataHandler ~ entryData:", entryData)
     let shopifyData = { ...theme_variable?.payload };
     
-    const keyBasedCt = livePreviewShopify.createContentTypeKeyBased(entryData.schema);
+    const keyBasedCt = livePreviewShopify.createContentTypeKeyBased([entryData.schema]);
     const updatedEntry = entryData.entry;
 
     if (_.get(shopifyData, 'product.metafields.contentstack_products', null)) {
@@ -72,7 +66,9 @@ export const getPreviewDataHandler = async (req: FastifyRequest<{ Body: PreviewD
         const mappedShopifyData = await livePreviewShopify.getUpdatedMetaobject({ ...currentMetaobjects }, keyBasedCt, updatedEntry, { ctUid: ctUid, hash: live_preview });
         shopifyData.metaobjects = mappedShopifyData.currentMetaobjects;
     }
-
+    if(typeof liquid_path !== 'string') {
+        return res.status(400).send({ message: 'Invalid liquid path' });
+    }
     const liquidFilePath = liquid_path.replace(/\./g, "/");
     try {        
         const newRenderedData = await engine.renderFile(liquidFilePath, shopifyData);

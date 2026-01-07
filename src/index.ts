@@ -1,5 +1,6 @@
 import { fastify, FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
+import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import 'dotenv/config';
@@ -23,6 +24,17 @@ const server: FastifyInstance = fastify({
 server.register(cors, {
   origin: true,
   credentials: true,
+});
+
+// Register rate limiting to prevent resource exhaustion
+server.register(rateLimit, {
+  max: config.contentstack.rateLimit?.max || 100,           // Maximum 100 requests per window
+  timeWindow: config.contentstack.rateLimit?.timeWindow || '1 minute',
+  errorResponseBuilder: () => ({
+    statusCode: 429,
+    error: 'Too Many Requests',
+    message: 'Rate limit exceeded. Please try again later.',
+  }),
 });
 
 // Register Swagger

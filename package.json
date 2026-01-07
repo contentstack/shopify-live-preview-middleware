@@ -21,7 +21,7 @@
     "format": "prettier --write \"src/**/*.ts\""
   },
   "dependencies": {
-    "@contentstack/shopify-live-preview-sdk": "file:contentstack-shopify-live-preview-sdk-1.0.0.tgz",
+    "@contentstack/shopify-live-preview-sdk": "^1.1.0",
     "@fastify/cors": "^8.3.0",
     "@fastify/rate-limit": "^9.1.0",
     "@fastify/swagger": "^8.8.0",

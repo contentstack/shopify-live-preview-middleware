@@ -49,10 +49,13 @@ export const getPreviewDataHandler = async (req: FastifyRequest<{ Body: PreviewD
     const { live_preview, ctUid, entryUid, locale, theme_variable } = req.body;
     const { liquid_path } = theme_variable;
     
-    const entryData: { schema: FieldSchema, entry: Entry } = await livePreviewShopify.fetchData(ctUid, entryUid, live_preview, locale) as { schema: FieldSchema, entry: Entry };
+    const entryData: { schema: FieldSchema[], entry: Entry } = await livePreviewShopify.fetchData(ctUid, entryUid, live_preview, locale) as { schema: FieldSchema[], entry: Entry };
     let shopifyData = { ...theme_variable?.payload };
-    
-    const keyBasedCt = livePreviewShopify.createContentTypeKeyBased([entryData.schema]);
+
+    // CDA include_schema=true returns `schema` as the field array itself — pass it
+    // directly; wrapping it in another array produced an empty key-based map, which
+    // routed every field (incl. modular blocks) through the generic no-schema branch.
+    const keyBasedCt = livePreviewShopify.createContentTypeKeyBased(entryData.schema);
     const updatedEntry = entryData.entry;
 
     if (_.get(shopifyData, 'product.metafields.contentstack_products', null)) {

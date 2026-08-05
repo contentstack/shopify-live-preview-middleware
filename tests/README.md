@@ -4,10 +4,9 @@ This directory contains the test suite for the Shopify Live Preview Middleware s
 
 ## Test Structure
 
-- `config.test.ts` - Configuration module tests
-- `githubSync.test.ts` - GitHub sync logic tests  
-- `environment.test.ts` - Environment utilities tests
-- `setup.ts` - Global test setup
+- `config.test.ts` - Configuration module tests, one `describe` per env permutation
+- `getPreviewData.test.ts` - `getPreviewData` handler tests, driven through `fastify.inject()`
+- `setup.ts` - Global test setup (installs the env the controller needs at import time)
 
 ## Running Tests
 
@@ -19,15 +18,14 @@ This directory contains the test suite for the Shopify Live Preview Middleware s
 
 ### Specific Tests
 - `npm run test:config` - Run config tests only
-- `npm run test:github` - Run GitHub sync tests only
 
 ## Current Coverage
 
-✅ **Configuration Module** - Fully tested
-✅ **GitHub Sync Logic** - Business logic tested
-✅ **Environment Utilities** - Utility functions tested
+✅ **Configuration Module** - Fully covered, including the undefended edge cases
+✅ **getPreviewData handler** - Success, validation and error paths covered
+✅ **Server bootstrap** (`src/app.ts`) - Covered via `buildServer()`
 
-⚠️ **Controllers & Routes** - Need integration testing
+⚠️ **githubSyncController / viewsHealthController** - Not yet covered
 
 ## Test Patterns
 
@@ -37,8 +35,16 @@ Tests follow Jest conventions with describe/it blocks and focus on:
 - Business logic
 - Edge cases
 
+Two conventions worth knowing before adding tests here:
+
+- **Native ESM.** The `jest` object is not injected as a global, so anything needing
+  `jest.resetModules()` / `jest.fn()` must `import { jest } from '@jest/globals'` first.
+- **Module-level env reads.** `src/config.ts` snapshots `process.env` at import time, so a test
+  that needs a different env has to `jest.resetModules()` and re-`import()` the module rather
+  than mutate `process.env` and expect the existing `config` object to change.
+
 ## Configuration
 
 - Jest config: `jest.config.cjs`
 - TypeScript config: `tsconfig.test.json`
-- Test setup: `tests/setup.ts` 
+- Test setup: `tests/setup.ts`

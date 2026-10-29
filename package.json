@@ -47,5 +47,10 @@
     "ts-node": "^10.9.2",
     "tsx": "^4.19.4",
     "typescript": "^5.1.6"
+  },
+  "overrides": {
+    "@fastify/static": {
+      "content-disposition": "^2.0.1"
+    }
   }
 }

@@ -62,6 +62,11 @@ export const getPreviewDataHandler = async (req: FastifyRequest<{ Body: PreviewD
         const currentMetafields = shopifyData.product.metafields.contentstack_products;
         const updatedMetafields = await livePreviewShopify.getUpdatedProductMetafields(currentMetafields, keyBasedCt, updatedEntry, { ctUid: ctUid, entryUid: entryUid, hash: live_preview })
         shopifyData.product.metafields.contentstack_products = updatedMetafields;
+    } else if (_.get(shopifyData, 'collection.metafields.contentstack_collections', null)) {
+        // One request carries one entry; applying it to both would overwrite shared uids like `sections`.
+        const currentMetafields = shopifyData.collection.metafields.contentstack_collections;
+        const updatedMetafields = await livePreviewShopify.getUpdatedProductMetafields(currentMetafields, keyBasedCt, updatedEntry, { ctUid: ctUid, entryUid: entryUid, hash: live_preview })
+        shopifyData.collection.metafields.contentstack_collections = updatedMetafields;
     }
 
     if (_.get(shopifyData, 'metaobjects', null)) {

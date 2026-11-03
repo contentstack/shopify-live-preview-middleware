@@ -166,6 +166,53 @@ describe('POST /get-preview-data', () => {
     });
   });
 
+  // VP-2702: collection pages carry their Contentstack fields as collection metafields.
+  describe('collection metafields branch', () => {
+    const collectionBody = (payload: Record<string, any> = {}) =>
+      buildPreviewRequestBody({
+        theme_variable: {
+          liquid_path: 'sections.main-collection',
+          data_cslp: 'product_ct.entry_123.en-us.title',
+          payload: {
+            collection: { metafields: { contentstack_collections: { existing: 'collection-metafield' } } },
+            ...payload,
+          },
+        },
+      });
+
+    it('calls getUpdatedProductMetafields with the collection metafields, entry and ids', async () => {
+      await post(collectionBody());
+
+      expect(updatedMetafieldsSpy).toHaveBeenCalledTimes(1);
+      const [currentMetafields, , entry, options] = updatedMetafieldsSpy.mock.calls[0];
+      expect(currentMetafields).toEqual({ existing: 'collection-metafield' });
+      expect(entry).toEqual(previewEntryFixture);
+      expect(options).toEqual({
+        ctUid: 'product_ct',
+        entryUid: 'entry_123',
+        hash: 'hash_abc123',
+      });
+    });
+
+    it('assigns the resolved metafields back onto the collection render data', async () => {
+      await post(collectionBody());
+
+      const [, renderData] = renderFileSpy.mock.calls[0];
+      expect(renderData.collection.metafields.contentstack_collections).toEqual({ updated: 'metafields' });
+    });
+
+    it('refreshes only the product metafields when both product and collection are sent', async () => {
+      await post(
+        collectionBody({ product: { metafields: { contentstack_products: { existing: 'metafield' } } } })
+      );
+
+      expect(updatedMetafieldsSpy).toHaveBeenCalledTimes(1);
+      expect(updatedMetafieldsSpy.mock.calls[0][0]).toEqual({ existing: 'metafield' });
+      const [, renderData] = renderFileSpy.mock.calls[0];
+      expect(renderData.collection.metafields.contentstack_collections).toEqual({ existing: 'collection-metafield' });
+    });
+  });
+
   describe('metaobjects branch', () => {
     const metaobjectBody = () =>
       buildPreviewRequestBody({

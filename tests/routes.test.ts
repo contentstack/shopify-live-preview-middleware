@@ -29,11 +29,7 @@ describe('route table', () => {
     ['GET', '/documentation'],
     ['GET', '/documentation/json'],
   ])('%s %s is not served', async (method, url) => {
-    const res = await app.inject({
-      method: method as 'GET' | 'POST',
-      url,
-      ...(method === 'POST' ? { payload: { authtoken: 'x', repoName: 'a/b' } } : {}),
-    });
+    const res = await app.inject({ method: method as 'GET' | 'POST', url });
 
     expect(res.statusCode).toBe(404);
   });

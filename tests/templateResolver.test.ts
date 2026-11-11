@@ -1,34 +1,26 @@
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
-import { resolveTemplatePath, DENIED_FOLDERS } from '../src/templateResolver.js';
+import { resolveTemplatePath } from '../src/templateResolver.js';
+import { writeTemplate } from './helpers.js';
 
 describe('resolveTemplatePath', () => {
-  let viewsRoot: string;
-
-  const touch = (rel: string) => {
-    const file = path.join(viewsRoot, rel);
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, '');
-  };
+  const viewsRoot = process.env.MIDDLEWARE_VIEWS_PATH as string;
 
   beforeAll(() => {
-    viewsRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'views-'));
-    touch('sections/product-template.liquid');
-    touch('snippets/hero.liquid');
-    touch('templates/product.liquid');
-    touch('assets/style.liquid');
-    touch('layout/theme.liquid');
-    touch('config/settings_schema.liquid');
-    touch('locales/en/default.liquid');
-  });
-
-  afterAll(() => {
-    fs.rmSync(viewsRoot, { recursive: true, force: true });
+    writeTemplate('index.liquid');
+    writeTemplate('sections/product-template.liquid');
+    writeTemplate('snippets/hero.liquid');
+    writeTemplate('templates/product.liquid');
+    writeTemplate('assets/style.liquid');
+    writeTemplate('layout/theme.liquid');
+    writeTemplate('config/settings_schema.liquid');
+    writeTemplate('locales/en/default.liquid');
   });
 
   it('returns the folder-prefixed path for a dotted section name', () => {
     expect(resolveTemplatePath(viewsRoot, 'sections.product-template')).toBe('sections/product-template');
+  });
+
+  it('returns a template that sits directly in views/ under its own name', () => {
+    expect(resolveTemplatePath(viewsRoot, 'index')).toBe('index');
   });
 
   it.each(['layout.theme', 'config.settings_schema', 'locales.en.default'])(
@@ -38,15 +30,14 @@ describe('resolveTemplatePath', () => {
     }
   );
 
-  it.each(DENIED_FOLDERS)('never resolves into %s/, by dotted or bare name', (folder) => {
-    touch(`${folder}/probe_${folder}.liquid`);
+  it.each(['layout', 'config', 'locales'])('never resolves into %s/, by dotted or bare name', (folder) => {
+    writeTemplate(`${folder}/probe_${folder}.liquid`);
 
     expect(resolveTemplatePath(viewsRoot, `${folder}.probe_${folder}`)).toBeNull();
     expect(resolveTemplatePath(viewsRoot, `probe_${folder}`)).toBeNull();
   });
 
-  // liquidjs looks a bare name up across every engine root, layout/ included, so the
-  // resolver must not hand it a bare name it found only in a denied folder.
+  // liquidjs would find a bare name in layout/ too, since layout/ is an engine root.
   it('refuses a bare name that exists only under layout/', () => {
     expect(resolveTemplatePath(viewsRoot, 'theme')).toBeNull();
   });
@@ -57,8 +48,8 @@ describe('resolveTemplatePath', () => {
 
   // Same precedence as the engine roots, so existing bare names keep rendering the same file.
   it('prefers snippets/ over sections/ for a bare name found in both', () => {
-    touch('snippets/card.liquid');
-    touch('sections/card.liquid');
+    writeTemplate('snippets/card.liquid');
+    writeTemplate('sections/card.liquid');
 
     expect(resolveTemplatePath(viewsRoot, 'card')).toBe('snippets/card');
   });

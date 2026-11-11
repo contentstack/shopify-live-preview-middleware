@@ -124,7 +124,7 @@ Renders one theme template with the live preview version of an entry.
 }
 ```
 
-`liquid_path` names a template under `sections/`, `snippets/`, `templates/` or `assets/` in `views/`, with dots for folder separators. Templates under `layout/`, `config/` and `locales/` can still be included from other templates but can't be rendered directly.
+`liquid_path` names a template under `sections/`, `snippets/`, `templates/` or `assets/` in `views/` (or a file directly in `views/`), with dots for folder separators. A path with more than one segment must start with one of those folders: `templates.customers.account`, not `customers.account`. A bare name such as `hero` is looked up in `views/`, then `snippets/`, `sections/`, `assets/` and `templates/`. Templates under `layout/`, `config/` and `locales/` can still be included from other templates but can't be rendered directly.
 
 | Status | Body | When |
 |---|---|---|

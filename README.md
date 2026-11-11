@@ -6,7 +6,6 @@ A middleware service for handling Shopify live preview functionality with Conten
 
 - Built with Fastify for high performance
 - TypeScript support
-- API documentation with Swagger
 - CORS enabled
 - Environment configuration
 - Structured logging with pino
@@ -97,14 +96,6 @@ To start the production server:
 npm start
 # or
 yarn start
-```
-
-## API Documentation
-
-Once the server is running, you can access the Swagger documentation at:
-
-```
-http://localhost:3002/documentation
 ```
 
 ## Troubleshooting

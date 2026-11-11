@@ -1,8 +1,6 @@
 import { fastify, FastifyInstance, FastifyServerOptions } from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
-import swagger from '@fastify/swagger';
-import swaggerUi from '@fastify/swagger-ui';
 import 'dotenv/config';
 
 import { registerRoutes } from './routes/index.js';
@@ -46,25 +44,6 @@ export const buildServer = (options: BuildServerOptions = {}): FastifyInstance =
       error: 'Too Many Requests',
       message: 'Rate limit exceeded. Please try again later.',
     }),
-  });
-
-  // Register Swagger
-  server.register(swagger, {
-    swagger: {
-      info: {
-        title: 'Shopify Live Preview API',
-        description: 'API documentation for Shopify Live Preview Middleware',
-        version: '1.0.0',
-      },
-      host: 'localhost:3002',
-      schemes: ['http'],
-      consumes: ['application/json'],
-      produces: ['application/json'],
-    },
-  });
-
-  server.register(swaggerUi, {
-    routePrefix: '/documentation',
   });
 
   // Register routes

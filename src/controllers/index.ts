@@ -90,6 +90,3 @@ export const getPreviewDataHandler = async (req: FastifyRequest<{ Body: PreviewD
         return res.status(500).send({ message: 'Error rendering liquid file' });
     }
 }
-
-// Export the views health handler
-export { viewsHealthHandler } from './viewsHealthController.js';

@@ -53,14 +53,13 @@ class PreviewFetchError extends Error {
     constructor(
         public readonly statusCode: 401 | 502,
         message: string,
-        public readonly upstreamErrorCode?: unknown,
+        public readonly upstreamErrorCode: unknown,
     ) {
         super(message);
     }
 }
 
-// fetchData resolves upstream error bodies instead of rejecting, so anything without an
-// entry + schema is a failed fetch: nothing renders without a hash the service accepted.
+// fetchData resolves upstream error bodies instead of rejecting, so no entry + schema means a failed fetch.
 const assertPreviewData = (result: unknown): { schema: FieldSchema[], entry: Entry } => {
     const body = (result && typeof result === 'object' ? result : {}) as Record<string, unknown>;
     if (Array.isArray(body.schema) && body.entry && typeof body.entry === 'object') {
@@ -77,10 +76,13 @@ export const getPreviewDataHandler = async (req: FastifyRequest<{ Body: PreviewD
     const { live_preview, ctUid, entryUid, locale, theme_variable } = req.body;
     const { liquid_path } = theme_variable;
     
-    const result = await livePreviewShopify.fetchData(ctUid, entryUid, live_preview, locale).catch((error: Error) => {
-        req.log.warn({ err: error.message }, 'preview fetch failed');
-        return null;
-    });
+    let result: unknown;
+    try {
+        result = await livePreviewShopify.fetchData(ctUid, entryUid, live_preview, locale);
+    } catch (error) {
+        req.log.warn({ err: (error as Error).message }, 'preview fetch failed');
+        return res.status(502).send({ message: 'Preview data unavailable' });
+    }
     let entryData: { schema: FieldSchema[], entry: Entry };
     try {
         entryData = assertPreviewData(result);

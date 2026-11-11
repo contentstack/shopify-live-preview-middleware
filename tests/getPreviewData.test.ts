@@ -1,10 +1,9 @@
 import { jest } from '@jest/globals';
-import fs from 'fs';
-import path from 'path';
 import { Writable } from 'stream';
 import { LivePreviewShopify } from '@contentstack/shopify-live-preview-sdk';
 import type { FastifyInstance } from 'fastify';
 import { buildServer } from '../src/app.js';
+import { writeTemplate } from './helpers.js';
 
 // The controller captured this exact instance and its liquid engine at import time.
 // getInstance() must be called with NO config here: passing one re-runs initialize(),
@@ -45,13 +44,6 @@ const buildPreviewRequestBody = (overrides: Record<string, any> = {}) => ({
   ...overrides,
 });
 
-// The resolver only renders files that exist, so every posted liquid_path needs one.
-const writeTemplate = (rel: string, content = '') => {
-  const file = path.join(process.env.MIDDLEWARE_VIEWS_PATH as string, rel);
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, content);
-};
-
 // Captures fastify's JSON log lines so cases can assert what reaches the deployment logs.
 const buildLoggedApp = async () => {
   const lines: string[] = [];
@@ -70,8 +62,8 @@ beforeAll(() => {
   writeTemplate('sections/product-template.liquid');
   writeTemplate('sections/main-collection.liquid');
   writeTemplate('layout/theme.liquid', 'LAYOUT');
-  writeTemplate('sections/foo.liquid', 'SECTION');
-  writeTemplate('layout/foo.liquid', 'LAYOUT');
+  writeTemplate('templates/baz.liquid', 'TEMPLATE');
+  writeTemplate('layout/baz.liquid', 'LAYOUT');
   writeTemplate('layout/bar.liquid', 'LAYOUT');
 });
 
@@ -466,7 +458,9 @@ describe('POST /get-preview-data', () => {
       await loggedApp.inject({ method: 'POST', url: '/get-preview-data', payload: buildPreviewRequestBody() });
       await loggedApp.close();
 
-      expect(logs()[0]).toEqual(expect.objectContaining({ msg: 'preview fetch failed', err: 'getaddrinfo ENOTFOUND' }));
+      expect(logs()).toEqual([
+        expect.objectContaining({ msg: 'preview fetch failed', err: 'getaddrinfo ENOTFOUND' }),
+      ]);
     });
   });
 
@@ -513,16 +507,17 @@ describe('POST /get-preview-data', () => {
       expect(renderFileSpy).not.toHaveBeenCalled();
     });
 
-    // These two run the real engine, where root order would otherwise decide.
-    it('renders sections/foo, not the layout/foo that shares its name', async () => {
+    // Real engine: left to liquidjs, root order (layout/ before templates/) would pick layout/baz.
+    it('renders templates/baz for a bare name, not the layout/baz that shares it', async () => {
       renderFileSpy.mockRestore();
       const body: any = buildPreviewRequestBody();
-      body.theme_variable.liquid_path = 'sections.foo';
+      body.theme_variable.liquid_path = 'baz';
 
       const res = await post(body);
 
       expect(res.statusCode).toBe(200);
-      expect(res.json().html).toContain('SECTION');
+      expect(res.json().html).toContain('TEMPLATE');
+      expect(res.json().html).not.toContain('LAYOUT');
     });
 
     it('returns 404 for a bare name that exists only under layout/', async () => {

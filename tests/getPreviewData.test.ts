@@ -1,4 +1,7 @@
 import { jest } from '@jest/globals';
+import fs from 'fs';
+import path from 'path';
+import { Writable } from 'stream';
 import { LivePreviewShopify } from '@contentstack/shopify-live-preview-sdk';
 import type { FastifyInstance } from 'fastify';
 import { buildServer } from '../src/app.js';
@@ -26,8 +29,11 @@ const previewEntryFixture = {
   description: 'Updated description',
 };
 
+// Real hashes are 32 hex chars; the route schema wants 16-64 alphanumerics.
+const PREVIEW_HASH = '0123456789abcdef0123456789abcdef';
+
 const buildPreviewRequestBody = (overrides: Record<string, any> = {}) => ({
-  live_preview: 'hash_abc123',
+  live_preview: PREVIEW_HASH,
   ctUid: 'product_ct',
   entryUid: 'entry_123',
   locale: 'en-us',
@@ -37,6 +43,36 @@ const buildPreviewRequestBody = (overrides: Record<string, any> = {}) => ({
     payload: {},
   },
   ...overrides,
+});
+
+// The resolver only renders files that exist, so every posted liquid_path needs one.
+const writeTemplate = (rel: string, content = '') => {
+  const file = path.join(process.env.MIDDLEWARE_VIEWS_PATH as string, rel);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, content);
+};
+
+// Captures fastify's JSON log lines so cases can assert what reaches the deployment logs.
+const buildLoggedApp = async () => {
+  const lines: string[] = [];
+  const stream = new Writable({
+    write(chunk, _enc, done) {
+      lines.push(chunk.toString());
+      done();
+    },
+  });
+  const app = buildServer({ logger: { level: 'warn', stream } as any });
+  await app.ready();
+  return { app, logs: () => lines.map((line) => JSON.parse(line)), raw: () => lines.join('') };
+};
+
+beforeAll(() => {
+  writeTemplate('sections/product-template.liquid');
+  writeTemplate('sections/main-collection.liquid');
+  writeTemplate('layout/theme.liquid', 'LAYOUT');
+  writeTemplate('sections/foo.liquid', 'SECTION');
+  writeTemplate('layout/foo.liquid', 'LAYOUT');
+  writeTemplate('layout/bar.liquid', 'LAYOUT');
 });
 
 describe('POST /get-preview-data', () => {
@@ -95,7 +131,7 @@ describe('POST /get-preview-data', () => {
     it('forwards ctUid, entryUid, hash and locale to fetchData', async () => {
       await post(buildPreviewRequestBody());
 
-      expect(fetchDataSpy).toHaveBeenCalledWith('product_ct', 'entry_123', 'hash_abc123', 'en-us');
+      expect(fetchDataSpy).toHaveBeenCalledWith('product_ct', 'entry_123', PREVIEW_HASH, 'en-us');
     });
 
     it('skips both enrichment branches when payload has no product or metaobjects', async () => {
@@ -152,7 +188,7 @@ describe('POST /get-preview-data', () => {
       expect(options).toEqual({
         ctUid: 'product_ct',
         entryUid: 'entry_123',
-        hash: 'hash_abc123',
+        hash: PREVIEW_HASH,
       });
       // built by the real createContentTypeKeyBased, keyed by field uid
       expect(keyBasedCt).toHaveProperty('title');
@@ -190,7 +226,7 @@ describe('POST /get-preview-data', () => {
       expect(options).toEqual({
         ctUid: 'product_ct',
         entryUid: 'entry_123',
-        hash: 'hash_abc123',
+        hash: PREVIEW_HASH,
       });
     });
 
@@ -230,7 +266,7 @@ describe('POST /get-preview-data', () => {
       const [currentMetaobjects, , entry, options] = updatedMetaobjectSpy.mock.calls[0];
       expect(currentMetaobjects).toEqual({ existing: 'metaobject' });
       expect(entry).toEqual(previewEntryFixture);
-      expect(options).toEqual({ ctUid: 'product_ct', hash: 'hash_abc123' });
+      expect(options).toEqual({ ctUid: 'product_ct', hash: PREVIEW_HASH });
     });
 
     it('assigns result.currentMetaobjects back onto the render data', async () => {
@@ -282,16 +318,53 @@ describe('POST /get-preview-data', () => {
       expect(renderFileSpy).not.toHaveBeenCalled();
     });
 
-    // Documents Ajv coerceTypes (a fastify default): a numeric liquid_path is coerced to
-    // a string at the schema layer, so the handler's own typeof guard never sees it.
-    it('coerces a numeric liquid_path to a string and renders it', async () => {
+    it.each([
+      ['empty', ''],
+      ['the init placeholder', 'init'],
+      ['65 chars', 'a'.repeat(65)],
+      ['non-alphanumeric', '0123456789abcdef0123456789abcde_'],
+    ])('rejects a live_preview hash that is %s with 400', async (_name, value) => {
+      const res = await post(buildPreviewRequestBody({ live_preview: value }));
+
+      expect(res.statusCode).toBe(400);
+      expect(fetchDataSpy).not.toHaveBeenCalled();
+    });
+
+    // ctUid and entryUid are interpolated unencoded into the upstream URL by the SDK.
+    it.each([
+      ['entryUid', { entryUid: 'x?environment=production#' }],
+      ['ctUid', { ctUid: 'a/b' }],
+    ])('rejects a %s carrying URL syntax with 400', async (_name, override) => {
+      const res = await post(buildPreviewRequestBody(override));
+
+      expect(res.statusCode).toBe(400);
+      expect(fetchDataSpy).not.toHaveBeenCalled();
+    });
+
+    // Ajv coerces 123 to '123', which passes the pattern but names no template.
+    it('coerces a numeric liquid_path to a string and answers 404 for the missing template', async () => {
       const body: any = buildPreviewRequestBody();
       body.theme_variable.liquid_path = 123;
 
       const res = await post(body);
 
-      expect(res.statusCode).toBe(200);
-      expect(renderFileSpy).toHaveBeenCalledWith('123', {});
+      expect(res.statusCode).toBe(404);
+      expect(renderFileSpy).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['a slash', 'sections/product-template'],
+      ['traversal', 'sections..product-template'],
+      ['a null byte', 'sections.product\u0000'],
+      ['a leading dot', '.sections'],
+    ])('rejects a liquid_path containing %s with 400', async (_name, value) => {
+      const body: any = buildPreviewRequestBody();
+      body.theme_variable.liquid_path = value;
+
+      const res = await post(body);
+
+      expect(res.statusCode).toBe(400);
+      expect(renderFileSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -305,20 +378,101 @@ describe('POST /get-preview-data', () => {
       expect(res.json()).toEqual({ message: 'Error rendering liquid file' });
     });
 
-    it('returns 500 when the upstream fetchData rejects', async () => {
+    it('returns 502 when the upstream fetchData rejects', async () => {
       fetchDataSpy.mockRejectedValue(new Error('CDA unreachable') as never);
 
       const res = await post(buildPreviewRequestBody());
 
-      expect(res.statusCode).toBe(500);
+      expect(res.statusCode).toBe(502);
+      expect(res.json()).toEqual({ message: 'Preview data unavailable' });
       expect(renderFileSpy).not.toHaveBeenCalled();
     });
   });
 
+  // The upstream error body's `hint` echoes the stack api key and org uid.
+  describe('fail-closed preview fetch', () => {
+    const expectNothingRendered = () => {
+      expect(keyBasedSpy).not.toHaveBeenCalled();
+      expect(updatedMetafieldsSpy).not.toHaveBeenCalled();
+      expect(updatedMetaobjectSpy).not.toHaveBeenCalled();
+      expect(renderFileSpy).not.toHaveBeenCalled();
+    };
+
+    it('returns 401 without relaying the upstream body when the hash is rejected (382)', async () => {
+      fetchDataSpy.mockResolvedValue({
+        error_code: 382,
+        error_message: 'Invalid live preview hash',
+        hint: { apiKey: 'x', orgUid: 'y' },
+      } as never);
+
+      const res = await post(
+        buildPreviewRequestBody({
+          theme_variable: {
+            liquid_path: 'sections.product-template',
+            data_cslp: 'product_ct.entry_123.en-us.title',
+            payload: {
+              product: { metafields: { contentstack_products: { existing: 'metafield' } } },
+              metaobjects: { existing: 'metaobject' },
+            },
+          },
+        })
+      );
+
+      expect(res.statusCode).toBe(401);
+      expect(res.json()).toEqual({ message: 'Live preview session is invalid or expired' });
+      expect(res.body).not.toContain('hint');
+      expect(res.body).not.toContain('error_code');
+      expectNothingRendered();
+    });
+
+    it.each([
+      ['another upstream error code', { error_code: 105, error_message: 'nope' }],
+      ['an empty body', {}],
+      ['a body without schema', { entry: previewEntryFixture }],
+      ['a body without entry', { schema: previewSchemaFixture }],
+      ['null', null],
+    ])('returns 502 when fetchData resolves %s', async (_name, body) => {
+      fetchDataSpy.mockResolvedValue(body as never);
+
+      const res = await post(buildPreviewRequestBody());
+
+      expect(res.statusCode).toBe(502);
+      expect(res.json()).toEqual({ message: 'Preview data unavailable' });
+      expectNothingRendered();
+    });
+
+    it('logs only the upstream error code for a rejected hash', async () => {
+      fetchDataSpy.mockResolvedValue({
+        error_code: 382,
+        error_message: 'Invalid live preview hash',
+        hint: { apiKey: 'stack-api-key', orgUid: 'org-uid' },
+      } as never);
+      const { app: loggedApp, logs, raw } = await buildLoggedApp();
+
+      await loggedApp.inject({ method: 'POST', url: '/get-preview-data', payload: buildPreviewRequestBody() });
+      await loggedApp.close();
+
+      expect(logs()).toEqual([
+        expect.objectContaining({ msg: 'preview fetch rejected', statusCode: 401, upstreamErrorCode: 382 }),
+      ]);
+      expect(raw()).not.toContain('stack-api-key');
+      expect(raw()).not.toContain('Invalid live preview hash');
+    });
+
+    it('logs the cause when fetchData rejects', async () => {
+      fetchDataSpy.mockRejectedValue(new Error('getaddrinfo ENOTFOUND') as never);
+      const { app: loggedApp, logs } = await buildLoggedApp();
+
+      await loggedApp.inject({ method: 'POST', url: '/get-preview-data', payload: buildPreviewRequestBody() });
+      await loggedApp.close();
+
+      expect(logs()[0]).toEqual(expect.objectContaining({ msg: 'preview fetch failed', err: 'getaddrinfo ENOTFOUND' }));
+    });
+  });
+
   describe('adversarial liquid_path', () => {
-    // Runs against the REAL engine (no renderFile spy) so the traversal attempt is
-    // resolved by liquidjs itself rather than by a stub.
-    it('does not leak file contents for a path-traversal attempt', async () => {
+    // Real engine (no renderFile spy), so only the route schema stands in the way.
+    it('rejects a path-traversal attempt at the schema layer without leaking file contents', async () => {
       renderFileSpy.mockRestore();
 
       const body: any = buildPreviewRequestBody();
@@ -326,9 +480,87 @@ describe('POST /get-preview-data', () => {
 
       const res = await post(body);
 
-      expect(res.statusCode).toBe(500);
-      expect(res.json()).toEqual({ message: 'Error rendering liquid file' });
+      expect(res.statusCode).toBe(400);
       expect(res.body).not.toContain('root:');
+    });
+  });
+
+  describe('template folder allow list', () => {
+    it('returns 404 for a template under layout/ before enrichment or rendering', async () => {
+      const body: any = buildPreviewRequestBody();
+      body.theme_variable.liquid_path = 'layout.theme';
+      body.theme_variable.payload = {
+        product: { metafields: { contentstack_products: { existing: 'metafield' } } },
+        metaobjects: { existing: 'metaobject' },
+      };
+
+      const res = await post(body);
+
+      expect(res.statusCode).toBe(404);
+      expect(res.json()).toEqual({ message: 'Template not found' });
+      expect(updatedMetafieldsSpy).not.toHaveBeenCalled();
+      expect(updatedMetaobjectSpy).not.toHaveBeenCalled();
+      expect(renderFileSpy).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 for a liquid_path with no template file', async () => {
+      const body: any = buildPreviewRequestBody();
+      body.theme_variable.liquid_path = 'sections.missing';
+
+      const res = await post(body);
+
+      expect(res.statusCode).toBe(404);
+      expect(renderFileSpy).not.toHaveBeenCalled();
+    });
+
+    // These two run the real engine, where root order would otherwise decide.
+    it('renders sections/foo, not the layout/foo that shares its name', async () => {
+      renderFileSpy.mockRestore();
+      const body: any = buildPreviewRequestBody();
+      body.theme_variable.liquid_path = 'sections.foo';
+
+      const res = await post(body);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().html).toContain('SECTION');
+    });
+
+    it('returns 404 for a bare name that exists only under layout/', async () => {
+      renderFileSpy.mockRestore();
+      const body: any = buildPreviewRequestBody();
+      body.theme_variable.liquid_path = 'bar';
+
+      const res = await post(body);
+
+      expect(res.statusCode).toBe(404);
+      expect(res.body).not.toContain('LAYOUT');
+    });
+  });
+
+  describe('render failure logging', () => {
+    it('logs the template and error message, never the request payload or stack', async () => {
+      const { app: loggedApp, logs, raw } = await buildLoggedApp();
+      renderFileSpy.mockRejectedValue(new Error('template blew up') as never);
+
+      const res = await loggedApp.inject({
+        method: 'POST',
+        url: '/get-preview-data',
+        payload: buildPreviewRequestBody({
+          theme_variable: {
+            liquid_path: 'sections.product-template',
+            data_cslp: 'x',
+            payload: { customer: { email: 'secret@example.com' } },
+          },
+        }),
+      });
+      await loggedApp.close();
+
+      expect(res.statusCode).toBe(500);
+      expect(logs()).toEqual([
+        { level: 50, time: expect.any(Number), pid: expect.any(Number), hostname: expect.any(String),
+          reqId: expect.any(String), msg: 'liquid render failed', liquidPath: 'sections/product-template', err: 'template blew up' },
+      ]);
+      expect(raw()).not.toContain('secret@example.com');
     });
   });
 
@@ -341,7 +573,7 @@ describe('POST /get-preview-data', () => {
       const res = await post(body);
 
       expect(res.statusCode).toBe(200);
-      expect(fetchDataSpy).toHaveBeenCalledWith('product_ct', 'entry_123', 'hash_abc123', undefined);
+      expect(fetchDataSpy).toHaveBeenCalledWith('product_ct', 'entry_123', PREVIEW_HASH, undefined);
     });
   });
 });

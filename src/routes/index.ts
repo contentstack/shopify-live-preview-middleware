@@ -29,14 +29,17 @@ export const registerRoutes = async (server: FastifyInstance) => {
         type: 'object',
         required: ['live_preview', 'ctUid', 'entryUid', 'theme_variable'],
         properties: {
-          live_preview: { type: 'string' },
-          ctUid: { type: 'string' },
-          entryUid: { type: 'string' },
+          // Real hashes are 32 hex chars; this keeps out '', 'init' and oversized values.
+          live_preview: { type: 'string', pattern: '^[A-Za-z0-9]{16,64}$' },
+          // The SDK interpolates these unencoded into the upstream URL, so no URL syntax.
+          ctUid: { type: 'string', pattern: '^[A-Za-z0-9_-]+$' },
+          entryUid: { type: 'string', pattern: '^[A-Za-z0-9_-]+$' },
           theme_variable: {
             type: 'object',
             required: ['liquid_path', 'data_cslp', 'payload'],
             properties: {
-              liquid_path: { type: 'string' },
+              // Dot-separated names only (sections.product-template): no separators or traversal.
+              liquid_path: { type: 'string', pattern: '^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*$' },
               data_cslp: { type: 'string' },
               payload: { type: 'object' }
             }
@@ -50,7 +53,25 @@ export const registerRoutes = async (server: FastifyInstance) => {
             html: { type: 'string' }
           }
         },
+        401: {
+          type: 'object',
+          properties: {
+            message: { type: 'string' }
+          }
+        },
+        404: {
+          type: 'object',
+          properties: {
+            message: { type: 'string' }
+          }
+        },
         500: {
+          type: 'object',
+          properties: {
+            message: { type: 'string' }
+          }
+        },
+        502: {
           type: 'object',
           properties: {
             message: { type: 'string' }

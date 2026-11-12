@@ -51,6 +51,9 @@
   "overrides": {
     "@fastify/static": {
       "content-disposition": "^2.0.1"
+    },
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.1"
     }
   }
 }

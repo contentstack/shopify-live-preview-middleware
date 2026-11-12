@@ -6,7 +6,10 @@ This directory contains the test suite for the Shopify Live Preview Middleware s
 
 - `config.test.ts` - Configuration module tests, one `describe` per env permutation
 - `getPreviewData.test.ts` - `getPreviewData` handler tests, driven through `fastify.inject()`
-- `setup.ts` - Global test setup (installs the env the controller needs at import time)
+- `routes.test.ts` - Route table: only `/health` and `/get-preview-data` are served
+- `templateResolver.test.ts` - `liquid_path` → template resolution and the folder allow list
+- `helpers.ts` - `writeTemplate`, which writes fixture templates into the temp views root
+- `setup.ts` - Global test setup (installs the env the controller needs at import time and a per-file temp views root via `MIDDLEWARE_VIEWS_PATH`)
 
 ## Running Tests
 
@@ -24,8 +27,6 @@ This directory contains the test suite for the Shopify Live Preview Middleware s
 ✅ **Configuration Module** - Fully covered, including the undefended edge cases
 ✅ **getPreviewData handler** - Success, validation and error paths covered
 ✅ **Server bootstrap** (`src/app.ts`) - Covered via `buildServer()`
-
-⚠️ **githubSyncController / viewsHealthController** - Not yet covered
 
 ## Test Patterns
 

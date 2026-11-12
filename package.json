@@ -23,8 +23,6 @@
     "@contentstack/shopify-live-preview-sdk": "^1.1.6",
     "@fastify/cors": "^11.0.0",
     "@fastify/rate-limit": "^10.0.0",
-    "@fastify/swagger": "^9.7.0",
-    "@fastify/swagger-ui": "^6.1.1",
     "dotenv": "^16.5.0",
     "fastify": "^5.12.5",
     "fastify-plugin": "^5.0.0",
@@ -47,10 +45,5 @@
     "ts-node": "^10.9.2",
     "tsx": "^4.19.4",
     "typescript": "^5.1.6"
-  },
-  "overrides": {
-    "@fastify/static": {
-      "content-disposition": "^2.0.1"
-    }
   }
 }

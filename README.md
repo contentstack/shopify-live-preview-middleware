@@ -6,7 +6,6 @@ A middleware service for handling Shopify live preview functionality with Conten
 
 - Built with Fastify for high performance
 - TypeScript support
-- API documentation with Swagger
 - CORS enabled
 - Environment configuration
 - Structured logging with pino
@@ -69,7 +68,7 @@ The following environment variables are required for the middleware to function 
 - `CONTENTSTACK_PREVIEW_URL`: Contentstack preview URL (defaults to 'https://api.contentstack.io')
 - `PORT`: Server port (defaults to 3002)
 - `HOST`: Server host (defaults to '0.0.0.0')
-- `NODE_ENV`: Node environment (defaults to 'development')
+- `NODE_ENV`: Node environment (defaults to 'development'). `production` turns on the Liquid template cache.
 
 ## Development
 
@@ -99,13 +98,42 @@ npm start
 yarn start
 ```
 
-## API Documentation
+## API
 
-Once the server is running, you can access the Swagger documentation at:
+The service exposes two routes.
 
+### `GET /health`
+
+Returns `200 { "status": "ok", "timestamp": "<ISO 8601>" }`.
+
+### `POST /get-preview-data`
+
+Renders one theme template with the live preview version of an entry.
+
+```json
+{
+  "live_preview": "<live preview hash from the editor session>",
+  "ctUid": "<content type uid>",
+  "entryUid": "<entry uid>",
+  "locale": "en-us",
+  "theme_variable": {
+    "liquid_path": "sections.product-template",
+    "data_cslp": "<cslp tag>",
+    "payload": {}
+  }
+}
 ```
-http://localhost:3002/documentation
-```
+
+`liquid_path` names a template under `sections/`, `snippets/`, `templates/` or `assets/` in `views/` (or a file directly in `views/`), with dots for folder separators. A path with more than one segment must start with one of those folders: `templates.customers.account`, not `customers.account`. A bare name such as `hero` is looked up in `views/`, then `snippets/`, `sections/`, `assets/` and `templates/`. Templates under `layout/`, `config/` and `locales/` can still be included from other templates but can't be rendered directly.
+
+| Status | Body | When |
+|---|---|---|
+| 200 | `{ "html": "..." }` | Rendered |
+| 400 | fastify validation error | Missing field, malformed hash, uid or `liquid_path` |
+| 401 | `{ "message": "Live preview session is invalid or expired" }` | Contentstack rejected the live preview hash |
+| 404 | `{ "message": "Template not found" }` | `liquid_path` is outside the allowed folders or has no file |
+| 500 | `{ "message": "Error rendering liquid file" }` | The template failed to render |
+| 502 | `{ "message": "Preview data unavailable" }` | Contentstack was unreachable, returned no entry, or a referenced entry or asset could not be fetched |
 
 ## Troubleshooting
 

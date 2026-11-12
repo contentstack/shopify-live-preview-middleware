@@ -1,8 +1,6 @@
 import { fastify, FastifyInstance, FastifyServerOptions } from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
-import swagger from '@fastify/swagger';
-import swaggerUi from '@fastify/swagger-ui';
 import 'dotenv/config';
 
 import { registerRoutes } from './routes/index.js';
@@ -34,7 +32,6 @@ export const buildServer = (options: BuildServerOptions = {}): FastifyInstance =
   // Register plugins
   server.register(cors, {
     origin: true,
-    credentials: true,
   });
 
   // Register rate limiting to prevent resource exhaustion
@@ -48,27 +45,15 @@ export const buildServer = (options: BuildServerOptions = {}): FastifyInstance =
     }),
   });
 
-  // Register Swagger
-  server.register(swagger, {
-    swagger: {
-      info: {
-        title: 'Shopify Live Preview API',
-        description: 'API documentation for Shopify Live Preview Middleware',
-        version: '1.0.0',
-      },
-      host: 'localhost:3002',
-      schemes: ['http'],
-      consumes: ['application/json'],
-      produces: ['application/json'],
-    },
-  });
-
-  server.register(swaggerUi, {
-    routePrefix: '/documentation',
-  });
-
   // Register routes
   registerRoutes(server);
 
   return server;
+};
+
+// SDK 1.1.6 leaves multi-reference fetches unawaited; without a listener one failed fetch exits the process.
+export const logUnhandledRejections = (server: FastifyInstance) => {
+  process.on('unhandledRejection', (reason) => {
+    server.log.error({ err: reason instanceof Error ? reason.message : String(reason) }, 'unhandled rejection');
+  });
 };

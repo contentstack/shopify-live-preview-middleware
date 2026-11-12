@@ -1,7 +1,8 @@
-import { buildServer } from './app.js';
+import { buildServer, logUnhandledRejections } from './app.js';
 import { config } from './config.js';
 
 const server = buildServer();
+logUnhandledRejections(server);
 
 const start = async () => {
   try {

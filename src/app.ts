@@ -50,3 +50,10 @@ export const buildServer = (options: BuildServerOptions = {}): FastifyInstance =
 
   return server;
 };
+
+// SDK 1.1.6 leaves multi-reference fetches unawaited; without a listener one failed fetch exits the process.
+export const logUnhandledRejections = (server: FastifyInstance) => {
+  process.on('unhandledRejection', (reason) => {
+    server.log.error({ err: reason instanceof Error ? reason.message : String(reason) }, 'unhandled rejection');
+  });
+};

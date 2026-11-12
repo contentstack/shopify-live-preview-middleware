@@ -1,5 +1,6 @@
+import { Writable } from 'stream';
 import type { FastifyInstance } from 'fastify';
-import { buildServer } from '../src/app.js';
+import { buildServer, logUnhandledRejections } from '../src/app.js';
 
 // Only /health and /get-preview-data are served; the removed routes must be plain 404s.
 describe('route table', () => {
@@ -50,5 +51,34 @@ describe('route table', () => {
     });
 
     expect(res.headers['access-control-allow-credentials']).toBeUndefined();
+  });
+});
+
+// SDK 1.1.6 leaves multi-reference fetches unawaited, so a failed one surfaces as an unhandled rejection.
+describe('unhandled rejections', () => {
+  it('logs the message instead of leaving the default handler to exit the process', async () => {
+    const lines: string[] = [];
+    const stream = new Writable({
+      write(chunk, _enc, done) {
+        lines.push(chunk.toString());
+        done();
+      },
+    });
+    const app = buildServer({ logger: { level: 'error', stream } as any });
+    const before = process.listeners('unhandledRejection');
+
+    logUnhandledRejections(app);
+    const added = process.listeners('unhandledRejection').filter((l) => !before.includes(l));
+    try {
+      expect(added).toHaveLength(1);
+      added[0](new Error('The requested entry does not exist.'), Promise.resolve());
+
+      expect(lines.map((line) => JSON.parse(line))).toEqual([
+        expect.objectContaining({ msg: 'unhandled rejection', err: 'The requested entry does not exist.' }),
+      ]);
+    } finally {
+      added.forEach((l) => process.off('unhandledRejection', l));
+      await app.close();
+    }
   });
 });

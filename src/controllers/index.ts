@@ -108,21 +108,27 @@ export const getPreviewDataHandler = async (req: FastifyRequest<{ Body: PreviewD
     const keyBasedCt = livePreviewShopify.createContentTypeKeyBased(entryData.schema);
     const updatedEntry = entryData.entry;
 
-    if (_.get(shopifyData, 'product.metafields.contentstack_products', null)) {
-        const currentMetafields = shopifyData.product.metafields.contentstack_products;
-        const updatedMetafields = await livePreviewShopify.getUpdatedProductMetafields(currentMetafields, keyBasedCt, updatedEntry, { ctUid: ctUid, entryUid: entryUid, hash: live_preview })
-        shopifyData.product.metafields.contentstack_products = updatedMetafields;
-    } else if (_.get(shopifyData, 'collection.metafields.contentstack_collections', null)) {
-        // One request carries one entry; applying it to both would overwrite shared uids like `sections`.
-        const currentMetafields = shopifyData.collection.metafields.contentstack_collections;
-        const updatedMetafields = await livePreviewShopify.getUpdatedProductMetafields(currentMetafields, keyBasedCt, updatedEntry, { ctUid: ctUid, entryUid: entryUid, hash: live_preview })
-        shopifyData.collection.metafields.contentstack_collections = updatedMetafields;
-    }
+    // The SDK throws upstream error_message text here, so it must not reach the default 500 handler.
+    try {
+        if (_.get(shopifyData, 'product.metafields.contentstack_products', null)) {
+            const currentMetafields = shopifyData.product.metafields.contentstack_products;
+            const updatedMetafields = await livePreviewShopify.getUpdatedProductMetafields(currentMetafields, keyBasedCt, updatedEntry, { ctUid: ctUid, entryUid: entryUid, hash: live_preview })
+            shopifyData.product.metafields.contentstack_products = updatedMetafields;
+        } else if (_.get(shopifyData, 'collection.metafields.contentstack_collections', null)) {
+            // One request carries one entry; applying it to both would overwrite shared uids like `sections`.
+            const currentMetafields = shopifyData.collection.metafields.contentstack_collections;
+            const updatedMetafields = await livePreviewShopify.getUpdatedProductMetafields(currentMetafields, keyBasedCt, updatedEntry, { ctUid: ctUid, entryUid: entryUid, hash: live_preview })
+            shopifyData.collection.metafields.contentstack_collections = updatedMetafields;
+        }
 
-    if (_.get(shopifyData, 'metaobjects', null)) {
-        const currentMetaobjects = shopifyData.metaobjects;
-        const mappedShopifyData = await livePreviewShopify.getUpdatedMetaobject({ ...currentMetaobjects }, keyBasedCt, updatedEntry, { ctUid: ctUid, hash: live_preview });
-        shopifyData.metaobjects = mappedShopifyData.currentMetaobjects;
+        if (_.get(shopifyData, 'metaobjects', null)) {
+            const currentMetaobjects = shopifyData.metaobjects;
+            const mappedShopifyData = await livePreviewShopify.getUpdatedMetaobject({ ...currentMetaobjects }, keyBasedCt, updatedEntry, { ctUid: ctUid, hash: live_preview });
+            shopifyData.metaobjects = mappedShopifyData.currentMetaobjects;
+        }
+    } catch (error) {
+        req.log.warn({ err: (error as Error).message }, 'preview enrichment failed');
+        return res.status(502).send({ message: 'Preview data unavailable' });
     }
     try {
         const newRenderedData = await engine.renderFile(templatePath, shopifyData);

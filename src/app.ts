@@ -32,7 +32,6 @@ export const buildServer = (options: BuildServerOptions = {}): FastifyInstance =
   // Register plugins
   server.register(cors, {
     origin: true,
-    credentials: true,
   });
 
   // Register rate limiting to prevent resource exhaustion

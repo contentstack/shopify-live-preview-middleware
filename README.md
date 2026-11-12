@@ -133,7 +133,7 @@ Renders one theme template with the live preview version of an entry.
 | 401 | `{ "message": "Live preview session is invalid or expired" }` | Contentstack rejected the live preview hash |
 | 404 | `{ "message": "Template not found" }` | `liquid_path` is outside the allowed folders or has no file |
 | 500 | `{ "message": "Error rendering liquid file" }` | The template failed to render |
-| 502 | `{ "message": "Preview data unavailable" }` | Contentstack was unreachable or returned no entry |
+| 502 | `{ "message": "Preview data unavailable" }` | Contentstack was unreachable, returned no entry, or a referenced entry or asset could not be fetched |
 
 ## Troubleshooting
 

@@ -379,6 +379,42 @@ describe('POST /get-preview-data', () => {
       expect(res.json()).toEqual({ message: 'Preview data unavailable' });
       expect(renderFileSpy).not.toHaveBeenCalled();
     });
+
+    // The SDK throws the upstream error_message, e.g. for a deleted referenced entry.
+    it.each([
+      ['product metafields', () => updatedMetafieldsSpy, { product: { metafields: { contentstack_products: { a: 1 } } } }],
+      ['metaobjects', () => updatedMetaobjectSpy, { metaobjects: { a: 1 } }],
+    ])('returns 502 without the upstream text when %s enrichment fails', async (_name, spy, payload) => {
+      spy().mockRejectedValue(new Error('The requested entry does not exist') as never);
+
+      const res = await post(
+        buildPreviewRequestBody({
+          theme_variable: { liquid_path: 'sections.product-template', data_cslp: 'product_ct.entry_123.en-us.title', payload },
+        })
+      );
+
+      expect(res.statusCode).toBe(502);
+      expect(res.json()).toEqual({ message: 'Preview data unavailable' });
+      expect(renderFileSpy).not.toHaveBeenCalled();
+    });
+
+    it('logs the cause once when enrichment fails', async () => {
+      updatedMetaobjectSpy.mockRejectedValue(new Error('The requested entry does not exist') as never);
+      const { app: loggedApp, logs } = await buildLoggedApp();
+
+      await loggedApp.inject({
+        method: 'POST',
+        url: '/get-preview-data',
+        payload: buildPreviewRequestBody({
+          theme_variable: { liquid_path: 'sections.product-template', data_cslp: 'product_ct.entry_123.en-us.title', payload: { metaobjects: { a: 1 } } },
+        }),
+      });
+      await loggedApp.close();
+
+      expect(logs()).toEqual([
+        expect.objectContaining({ msg: 'preview enrichment failed', err: 'The requested entry does not exist' }),
+      ]);
+    });
   });
 
   // The upstream error body's `hint` echoes the stack api key and org uid.

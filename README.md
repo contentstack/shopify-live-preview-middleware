@@ -124,14 +124,14 @@ Renders one theme template with the live preview version of an entry.
 }
 ```
 
-`liquid_path` names a template under `sections/`, `snippets/`, `templates/` or `assets/` in `views/` (or a file directly in `views/`), with dots for folder separators. A path with more than one segment must start with one of those folders: `templates.customers.account`, not `customers.account`. A bare name such as `hero` is looked up in `views/`, then `snippets/`, `sections/`, `assets/` and `templates/`. Templates under `layout/`, `config/` and `locales/` can still be included from other templates but can't be rendered directly.
+`liquid_path` names a template file in `views/`, with dots for folder separators: `sections.hero` renders `views/sections/hero.liquid`. Any folder in `views/` works, including folders you add yourself, so `custom.foo` renders `views/custom/foo.liquid`. If the path isn't found directly in `views/`, it is looked up in `snippets/`, `sections/`, `assets/` and `templates/`, in that order: `hero` can render `views/snippets/hero.liquid` and `customers.account` can render `views/templates/customers/account.liquid`. Templates under `layout/`, `config/` and `locales/` can still be included from other templates but can't be rendered directly. Paths that leave `views/` are refused.
 
 | Status | Body | When |
 |---|---|---|
 | 200 | `{ "html": "..." }` | Rendered |
 | 400 | fastify validation error | Missing field, malformed hash, uid or `liquid_path` |
 | 401 | `{ "message": "Live preview session is invalid or expired" }` | Contentstack rejected the live preview hash |
-| 404 | `{ "message": "Template not found" }` | `liquid_path` is outside the allowed folders or has no file |
+| 404 | `{ "message": "Template not found" }` | `liquid_path` points into `layout/`, `config/` or `locales/`, leaves `views/`, or has no file |
 | 500 | `{ "message": "Error rendering liquid file" }` | The template failed to render |
 | 502 | `{ "message": "Preview data unavailable" }` | Contentstack was unreachable, returned no entry, or a referenced entry or asset could not be fetched |
 

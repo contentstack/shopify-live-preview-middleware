@@ -13,11 +13,36 @@ describe('resolveTemplatePath', () => {
     writeTemplate('layout/theme.liquid');
     writeTemplate('config/settings_schema.liquid');
     writeTemplate('locales/en/default.liquid');
+    writeTemplate('custom/foo.liquid');
+    writeTemplate('templates/customers/account.liquid');
+    writeTemplate('layout/only/here.liquid');
   });
 
   it('returns the folder-prefixed path for a dotted section name', () => {
     expect(resolveTemplatePath(viewsRoot, 'sections.product-template')).toBe('sections/product-template');
   });
+
+  // Merchants add their own folders under views/; only the protected ones are off limits.
+  it('returns a template from a folder the merchant added', () => {
+    expect(resolveTemplatePath(viewsRoot, 'custom.foo')).toBe('custom/foo');
+  });
+
+  // Keeps the old engine-root lookup: liquidjs used to find customers/account under templates/.
+  it('falls back to the bare-name folders for a multi-segment path not directly in views/', () => {
+    expect(resolveTemplatePath(viewsRoot, 'customers.account')).toBe('templates/customers/account');
+  });
+
+  it('refuses a multi-segment path that exists only under a protected folder', () => {
+    expect(resolveTemplatePath(viewsRoot, 'only.here')).toBeNull();
+  });
+
+  // The route allows uppercase, and on a case-insensitive filesystem Layout/ is layout/.
+  it.each(['Layout.theme', 'CONFIG.settings_schema', 'Locales.en.default'])(
+    'refuses %s regardless of case',
+    (liquidPath) => {
+      expect(resolveTemplatePath(viewsRoot, liquidPath)).toBeNull();
+    }
+  );
 
   it('returns a template that sits directly in views/ under its own name', () => {
     expect(resolveTemplatePath(viewsRoot, 'index')).toBe('index');

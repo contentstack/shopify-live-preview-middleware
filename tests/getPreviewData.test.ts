@@ -65,6 +65,8 @@ beforeAll(() => {
   writeTemplate('templates/baz.liquid', 'TEMPLATE');
   writeTemplate('layout/baz.liquid', 'LAYOUT');
   writeTemplate('layout/bar.liquid', 'LAYOUT');
+  writeTemplate('custom/foo.liquid', 'CUSTOM');
+  writeTemplate('config/x.liquid', 'CONFIG');
 });
 
 describe('POST /get-preview-data', () => {
@@ -515,7 +517,7 @@ describe('POST /get-preview-data', () => {
     });
   });
 
-  describe('template folder allow list', () => {
+  describe('template folder rules', () => {
     it('returns 404 for a template under layout/ before enrichment or rendering', async () => {
       const body: any = buildPreviewRequestBody();
       body.theme_variable.liquid_path = 'layout.theme';
@@ -565,6 +567,23 @@ describe('POST /get-preview-data', () => {
 
       expect(res.statusCode).toBe(404);
       expect(res.body).not.toContain('LAYOUT');
+    });
+
+    // Real engine: a merchant folder renders, a protected folder is refused even though the file exists.
+    it('renders custom.foo from a merchant folder and returns 404 for config.x', async () => {
+      renderFileSpy.mockRestore();
+      const custom: any = buildPreviewRequestBody();
+      custom.theme_variable.liquid_path = 'custom.foo';
+      const protectedPath: any = buildPreviewRequestBody();
+      protectedPath.theme_variable.liquid_path = 'config.x';
+
+      const customRes = await post(custom);
+      const protectedRes = await post(protectedPath);
+
+      expect(customRes.statusCode).toBe(200);
+      expect(customRes.json().html).toContain('CUSTOM');
+      expect(protectedRes.statusCode).toBe(404);
+      expect(protectedRes.body).not.toContain('CONFIG');
     });
   });
 

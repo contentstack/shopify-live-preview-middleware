@@ -1,6 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { syncGithubRepoHandler } from '../controllers/githubSyncController.js';
-import { getPreviewDataHandler, viewsHealthHandler } from '../controllers/index.js';
+import { getPreviewDataHandler } from '../controllers/index.js';
 
 export const registerRoutes = async (server: FastifyInstance) => {
   // Health check route
@@ -24,141 +23,23 @@ export const registerRoutes = async (server: FastifyInstance) => {
     },
   });
 
-  // Views directory health check route
-  server.get('/health/views', {
-    schema: {
-      response: {
-        200: {
-          type: 'object',
-          properties: {
-            status: { type: 'string' },
-            timestamp: { type: 'string' },
-            viewsDirectory: {
-              type: 'object',
-              properties: {
-                path: { type: 'string' },
-                exists: { type: 'boolean' },
-                writable: { type: 'boolean' },
-                totalFiles: { type: 'number' },
-                totalDirectories: { type: 'number' },
-                totalSize: { type: 'number' },
-                contents: { type: 'array' }
-              }
-            },
-            message: { type: 'string' }
-          }
-        },
-        404: {
-          type: 'object',
-          properties: {
-            status: { type: 'string' },
-            timestamp: { type: 'string' },
-            viewsDirectory: {
-              type: 'object',
-              properties: {
-                path: { type: 'string' },
-                exists: { type: 'boolean' },
-                writable: { type: 'boolean' },
-                totalFiles: { type: 'number' },
-                totalDirectories: { type: 'number' },
-                totalSize: { type: 'number' },
-                contents: { type: 'array' }
-              }
-            },
-            message: { type: 'string' }
-          }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            status: { type: 'string' },
-            timestamp: { type: 'string' },
-            viewsDirectory: {
-              type: 'object',
-              properties: {
-                path: { type: 'string' },
-                exists: { type: 'boolean' },
-                writable: { type: 'boolean' },
-                totalFiles: { type: 'number' },
-                totalDirectories: { type: 'number' },
-                totalSize: { type: 'number' },
-                contents: { type: 'array' }
-              }
-            },
-            message: { type: 'string' }
-          }
-        }
-      }
-    },
-    handler: viewsHealthHandler
-  });
-
-  // GitHub repo sync route
-  server.post('/sync-github-repo', {
-    schema: {
-      body: {
-        type: 'object',
-        required: ['authtoken', 'repoName'],
-        properties: {
-          authtoken: { 
-            type: 'string',
-            description: 'GitHub personal access token'
-          },
-          repoName: { 
-            type: 'string',
-            description: 'Repository name in format owner/repo'
-          },
-          branch: {
-            type: 'string',
-            description: 'Optional branch name to clone (defaults to repository default branch)'
-          }
-        }
-      },
-      response: {
-        200: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' }
-          }
-        },
-        400: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' }
-          }
-        },
-        401: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' }
-          }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            error: { type: 'string' }
-          }
-        }
-      }
-    },
-    handler: syncGithubRepoHandler
-  });
-
   server.post('/get-preview-data', {
     schema: {
       body: {
         type: 'object',
         required: ['live_preview', 'ctUid', 'entryUid', 'theme_variable'],
         properties: {
-          live_preview: { type: 'string' },
-          ctUid: { type: 'string' },
-          entryUid: { type: 'string' },
+          // Real hashes are 32 hex chars; this keeps out '', 'init' and oversized values.
+          live_preview: { type: 'string', pattern: '^[A-Za-z0-9]{16,64}$' },
+          // The SDK interpolates these unencoded into the upstream URL, so no URL syntax.
+          ctUid: { type: 'string', pattern: '^[A-Za-z0-9_-]+$' },
+          entryUid: { type: 'string', pattern: '^[A-Za-z0-9_-]+$' },
           theme_variable: {
             type: 'object',
             required: ['liquid_path', 'data_cslp', 'payload'],
             properties: {
-              liquid_path: { type: 'string' },
+              // Dot-separated names only (sections.product-template): no separators or traversal.
+              liquid_path: { type: 'string', pattern: '^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*$' },
               data_cslp: { type: 'string' },
               payload: { type: 'object' }
             }
@@ -172,7 +53,25 @@ export const registerRoutes = async (server: FastifyInstance) => {
             html: { type: 'string' }
           }
         },
+        401: {
+          type: 'object',
+          properties: {
+            message: { type: 'string' }
+          }
+        },
+        404: {
+          type: 'object',
+          properties: {
+            message: { type: 'string' }
+          }
+        },
         500: {
+          type: 'object',
+          properties: {
+            message: { type: 'string' }
+          }
+        },
+        502: {
           type: 'object',
           properties: {
             message: { type: 'string' }

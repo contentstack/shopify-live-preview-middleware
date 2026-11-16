@@ -1,3 +1,7 @@
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+
 // Global test setup
 
 // Mock environment variables for testing
@@ -11,3 +15,11 @@ process.env.CONTENTSTACK_DELIVERY_TOKEN = 'test-delivery-token';
 process.env.CONTENTSTACK_PREVIEW_TOKEN = 'test-preview-token';
 process.env.CONTENTSTACK_ENVIRONMENT = 'test-environment';
 process.env.CONTENTSTACK_API_KEY = 'test-api-key';
+
+// Test-only views root (production never sets it); suites write fixture templates here.
+const viewsPath = fs.mkdtempSync(path.join(os.tmpdir(), 'middleware-views-'));
+process.env.MIDDLEWARE_VIEWS_PATH = viewsPath;
+
+afterAll(() => {
+  fs.rmSync(viewsPath, { recursive: true, force: true });
+});

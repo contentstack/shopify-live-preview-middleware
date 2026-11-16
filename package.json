@@ -20,7 +20,7 @@
     "format": "prettier --write \"src/**/*.ts\""
   },
   "dependencies": {
-    "@contentstack/shopify-live-preview-sdk": "^1.1.6",
+    "@contentstack/shopify-live-preview-sdk": "^1.1.7",
     "@fastify/cors": "^11.0.0",
     "@fastify/rate-limit": "^10.0.0",
     "dotenv": "^16.5.0",

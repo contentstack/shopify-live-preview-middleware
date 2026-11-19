@@ -45,8 +45,9 @@ export const buildServer = (options: BuildServerOptions = {}): FastifyInstance =
     }),
   });
 
-  // Register routes
-  registerRoutes(server);
+  // Routes added synchronously here would be created before rate-limit loads and miss its
+  // onRoute hook, so register them as a plugin that loads after it.
+  server.register(registerRoutes);
 
   return server;
 };

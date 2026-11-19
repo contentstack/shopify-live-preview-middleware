@@ -54,6 +54,37 @@ describe('route table', () => {
   });
 });
 
+// Routes registered before the rate-limit plugin loaded used to miss its hook and were never limited.
+describe('rate limiting', () => {
+  let app: FastifyInstance;
+
+  beforeEach(async () => {
+    app = buildServer({ logger: false });
+    await app.ready();
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it.each([
+    ['GET', '/health'],
+    ['POST', '/get-preview-data'],
+  ])('%s %s returns 429 after 100 requests in a window', async (method, url) => {
+    const send = () => app.inject({ method: method as 'GET' | 'POST', url, payload: method === 'POST' ? {} : undefined });
+
+    const first = await send();
+    expect(first.statusCode).not.toBe(429);
+    expect(first.headers['x-ratelimit-limit']).toBe('100');
+
+    for (let i = 1; i < 100; i++) await send();
+
+    const over = await send();
+    expect(over.statusCode).toBe(429);
+    expect(over.json().message).toBe('Rate limit exceeded. Please try again later.');
+  });
+});
+
 // SDK 1.1.6 leaves multi-reference fetches unawaited, so a failed one surfaces as an unhandled rejection.
 describe('unhandled rejections', () => {
   it('logs the message instead of leaving the default handler to exit the process', async () => {

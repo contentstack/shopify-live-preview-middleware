@@ -27,6 +27,9 @@ const defaultLogger: FastifyServerOptions['logger'] = {
 export const buildServer = (options: BuildServerOptions = {}): FastifyInstance => {
   const server: FastifyInstance = fastify({
     logger: options.logger === undefined ? defaultLogger : options.logger,
+    // Launch forwards every request over localhost and sets x-forwarded-for itself, so trust it
+    // only from loopback. A hop count would trust nothing on Fastify 5.12.
+    trustProxy: 'loopback',
   });
 
   // Register plugins
@@ -45,8 +48,9 @@ export const buildServer = (options: BuildServerOptions = {}): FastifyInstance =
     }),
   });
 
-  // Register routes
-  registerRoutes(server);
+  // Routes added synchronously here would be created before rate-limit loads and miss its
+  // onRoute hook, so register them as a plugin that loads after it.
+  server.register(registerRoutes);
 
   return server;
 };

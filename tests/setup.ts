@@ -16,6 +16,10 @@ process.env.CONTENTSTACK_PREVIEW_TOKEN = 'test-preview-token';
 process.env.CONTENTSTACK_ENVIRONMENT = 'test-environment';
 process.env.CONTENTSTACK_API_KEY = 'test-api-key';
 
+// Pinned so a local .env (loaded by app.ts through dotenv) can't change the limit the tests expect.
+process.env.RATE_LIMIT_MAX = '100';
+process.env.RATE_LIMIT_TIME_WINDOW = '1 minute';
+
 // Test-only views root (production never sets it); suites write fixture templates here.
 const viewsPath = fs.mkdtempSync(path.join(os.tmpdir(), 'middleware-views-'));
 process.env.MIDDLEWARE_VIEWS_PATH = viewsPath;

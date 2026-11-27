@@ -27,6 +27,9 @@ const defaultLogger: FastifyServerOptions['logger'] = {
 export const buildServer = (options: BuildServerOptions = {}): FastifyInstance => {
   const server: FastifyInstance = fastify({
     logger: options.logger === undefined ? defaultLogger : options.logger,
+    // Launch forwards every request over localhost and sets x-forwarded-for itself, so trust it
+    // only from loopback. A hop count would trust nothing on Fastify 5.12.
+    trustProxy: 'loopback',
   });
 
   // Register plugins
